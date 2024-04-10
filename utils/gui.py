@@ -61,7 +61,3 @@ class ChatClient(tk.Frame):
     def send_command(self, command):
         self.chat_socket.send(command.encode())
 
-root = tk.Tk()
-client = ChatClient(master=root)
-client.connect_to_server()
-root.mainloop()
