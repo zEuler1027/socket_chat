@@ -65,6 +65,10 @@ class ChatClient(tk.Frame):
         self.rooms_list.insert(tk.END, f"{response}\n", 'message_font')
 
     def join_room(self):
+        if self.current_room:
+            self.rooms_list.insert(tk.END, "You are already in a room.\n", 'message_font')
+            return
+        
         room_name = simpledialog.askstring("Room Name", "Enter room name to join:", parent=self)
         if room_name:
             self.send_command(f"JOIN {room_name}")
