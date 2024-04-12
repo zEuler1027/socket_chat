@@ -19,22 +19,33 @@ class ChatServer:
     def handle_client(self, client_socket):
         while True:
             try:
-                data = client_socket.recv(1024).decode()
+                data = client_socket.recv(4096)
                 if not data:
                     break
-                command, _, room_name = data.partition(' ')
-                if command == 'CREATE':
-                    self.create_room(room_name)
-                    client_socket.send(f"Room '{room_name}' created.".encode())
-                elif command == 'LIST':
-                    rooms_list = ', '.join(self.rooms.keys())
-                    client_socket.send(f"Available rooms: {rooms_list}".encode())
-                elif command == 'JOIN':
-                    message = self.join_room(room_name, client_socket)
-                    client_socket.send(message.encode())
+                if data.startswith(b'AUDIO '):  
+                    room_name, audio_data = self.parse_audio_data(data)
+                    self.broadcast_audio(room_name, audio_data, client_socket)
+                else:
+                    self.handle_text_data(client_socket, data)
             except ConnectionResetError:
                 break
         client_socket.close()
+
+    def handle_text_data(self, client_socket, data):
+        command, _, room_name = data.decode().partition(' ')
+        if command == 'CREATE':
+            self.create_room(room_name)
+            client_socket.send(f"Room '{room_name}' created.".encode())
+        elif command == 'LIST':
+            rooms_list = ', '.join(self.rooms.keys())
+            client_socket.send(f"Available rooms: {rooms_list}".encode())
+        elif command == 'JOIN':
+            message = self.join_room(room_name, client_socket)
+            client_socket.send(message.encode())
+        elif command == 'LEAVE':
+            current_room = room_name
+            message = self.leave_room(current_room, client_socket)
+            client_socket.send(message.encode())
 
     def create_room(self, room_name):
         if room_name not in self.rooms:
@@ -46,6 +57,20 @@ class ChatServer:
             return f"Joined room: {room_name}"
         else:
             return f"Room '{room_name}' does not exist."
+
+    def leave_room(self, current_room, client_socket):
+        self.rooms[current_room].remove(client_socket)
+        return f"Left room: {current_room}"
+        
+    def parse_audio_data(self, data):
+        _, room_name, audio_data = data.split(b' ', 2)
+        return room_name.decode(), audio_data
+    
+    def broadcast_audio(self, room_name, audio_data, sender_socket):
+        if room_name in self.rooms:
+            for client_socket in self.rooms[room_name]:
+                if client_socket != sender_socket:
+                    client_socket.send(b'AUDIO ' + room_name.encode() + b' ' + audio_data)
 
 if __name__ == '__main__':
     chat_server = ChatServer()
